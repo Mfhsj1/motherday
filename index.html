@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>С Днём матери</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fffdf9;
+    --pink: #e8b4b8;
+    --sage: #a8b5a0;
+    --text: #3d3d3d;
+    --pad: clamp(24px, 6vw, 46px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #f7dcdc;
+    color: var(--text);
+    font-family: "Lora", Georgia, serif;
+    font-size: 1.08rem;
+    line-height: 1.75;
+    overflow-x: hidden;
+  }
+  section[hidden] { display: none; }
+
+  /* ---------- Движущийся градиент ---------- */
+  .bg {
+    position: fixed; inset: 0; z-index: -1; overflow: hidden;
+    background: linear-gradient(125deg, #f7d5d9, #fbe3d3, #e6eddc, #f4dbe8, #fbe3d3, #f7d5d9);
+    background-size: 320% 320%;
+    animation: drift 26s ease-in-out infinite;
+  }
+  .bg::before, .bg::after {
+    content: ""; position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; opacity: .6;
+  }
+  .bg::before {
+    left: -15vmax; top: -10vmax;
+    background: radial-gradient(circle, #fff3e8 0, rgba(255,243,232,0) 65%);
+    animation: blob1 32s ease-in-out infinite alternate;
+  }
+  .bg::after {
+    right: -20vmax; bottom: -20vmax;
+    background: radial-gradient(circle, #cfe0c8 0, rgba(207,224,200,0) 65%);
+    animation: blob2 38s ease-in-out infinite alternate;
+  }
+  @keyframes drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes blob1 { to { transform: translate(35vmax, 25vmax) scale(1.2); } }
+  @keyframes blob2 { to { transform: translate(-30vmax, -22vmax) scale(.9); } }
+
+  /* ---------- Каркас: плеер сверху, лист на столе ---------- */
+  .app {
+    position: relative; display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh; min-height: 460px;
+  }
+  .player-bar { display: flex; justify-content: center; padding: 12px 14px 2px; }
+  .desk { flex: 1; min-height: 0; display: flex; justify-content: center; padding: 14px 16px 22px; }
+  .stack { position: relative; width: 100%; max-width: 700px; height: 100%; max-height: 840px; align-self: center; }
+  .stack::before, .stack::after {
+    content: ""; position: absolute; inset: 0; border-radius: 3px;
+    box-shadow: 0 2px 10px rgba(90,50,60,.14);
+  }
+  .stack::before { background: #fbf4ec; transform: rotate(-1.3deg); }
+  .stack::after  { background: #fdf8f1; transform: rotate(1deg); }
+
+  .sheet {
+    position: relative; z-index: 1; height: 100%;
+    display: flex; flex-direction: column;
+    background: var(--paper); border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(80,50,50,.14), 0 14px 32px rgba(120,70,80,.16), 0 34px 70px rgba(120,70,80,.12);
+  }
+  .tape {
+    position: absolute; z-index: 2; top: -13px; left: 50%; width: 116px; height: 30px; margin-left: -58px;
+    transform: rotate(-2.5deg); background: rgba(232,180,184,.66); pointer-events: none;
+    clip-path: polygon(0 0, 100% 0, 98% 25%, 100% 50%, 98% 75%, 100% 100%, 0 100%, 2% 75%, 0 50%, 2% 25%);
+  }
+  .scroll-wrap { position: relative; flex: 1; min-height: 0; }
+  .scroller {
+    position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: clamp(28px, 5vh, 46px) var(--pad) 14px;
+    scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--pink) transparent;
+  }
+  .fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 56px; pointer-events: none;
+    background: linear-gradient(to bottom, rgba(255,253,249,0), var(--paper));
+    opacity: 0; transition: opacity .25s ease;
+  }
+  .sheet.more .fade { opacity: 1; }
+
+  /* ---------- Плеер ---------- */
+  .player {
+    display: flex; align-items: center; gap: 10px; padding: 5px 14px 5px 5px;
+    border-radius: 999px; font-size: .9rem; line-height: 1; user-select: none;
+    background: rgba(255,253,249,.62); border: 1px solid rgba(255,255,255,.75);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(120,70,80,.12);
+  }
+  .pbtn {
+    width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    display: grid; place-items: center; color: var(--text); background: var(--pink);
+    transition: background-color .2s ease;
+  }
+  .pbtn:hover { background: #dca0a5; }
+  .pbtn:focus-visible { outline: 3px solid var(--sage); outline-offset: 2px; }
+  .pbtn.hint { animation: ring 2s ease-out infinite; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(217,140,147,.6); } 70%, 100% { box-shadow: 0 0 0 12px rgba(217,140,147,0); } }
+  .player .i-pause { display: none; }
+  .player.playing .i-play { display: none; }
+  .player.playing .i-pause { display: block; }
+  .ptext { display: flex; align-items: center; white-space: nowrap; }
+  .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; margin-left: 9px; }
+  .eq i { width: 3px; height: 4px; border-radius: 2px; background: #c9858c; }
+  .player.playing .eq i { animation: eq 1s ease-in-out infinite; }
+  .eq i:nth-child(2) { animation-delay: -.4s; }
+  .eq i:nth-child(3) { animation-delay: -.75s; }
+  @keyframes eq { 0%, 100% { height: 3px; } 50% { height: 14px; } }
+  .pvol { width: 72px; accent-color: #d98c93; cursor: pointer; }
+
+  /* ---------- Текст ---------- */
+  h1, h2, .lead {
+    font-family: "Caveat", "Segoe Script", cursive;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  h1 { font-size: clamp(2.8rem, 9vw, 4.4rem); margin: 0 0 24px; }
+  h2 { font-size: clamp(2.4rem, 8vw, 3.2rem); margin: 0 0 24px; }
+  p { margin: 0 0 20px; }
+
+  /* обложка по центру листа */
+  #p0:not([hidden]) { min-height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+
+  .lead { display: block; font-size: 1.9rem; color: #b8737a; margin-bottom: 2px; }
+  .wish { margin-bottom: 26px; }
+  .wish p { margin: 0; }
+
+  .sign { font-family: "Caveat", "Segoe Script", cursive; font-size: 2rem; font-weight: 500; margin-top: 30px; }
+  .small { font-style: italic; color: #6b6b6b; }
+
+  /* ---------- Кнопки (навигация всегда прижата к низу листа) ---------- */
+  .nav {
+    display: flex; justify-content: space-between; gap: 12px;
+    margin: 0 var(--pad); padding: 16px 0 22px;
+    border-top: 1px solid var(--pink);
+  }
+  .nav.off { visibility: hidden; }
+  .nav .btn { min-width: 7.5em; }
+  .btn {
+    font: inherit; font-size: 1.05rem; color: var(--text);
+    background: var(--pink); border: 0; border-radius: 8px;
+    padding: 12px 26px; min-height: 48px; cursor: pointer;
+    transition: background-color .2s ease;
+  }
+  .btn:hover { background: #dca0a5; }
+  .btn.quiet { background: transparent; border: 1px solid var(--sage); }
+  .btn.quiet:hover { background: var(--sage); }
+  .btn:focus-visible { outline: 3px solid var(--sage); outline-offset: 3px; }
+  .start { margin-top: 12px; }
+  #rbtn { min-width: 13em; }
+
+  .page-in { animation: pagein .5s ease both; }
+  @keyframes pagein { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---------- Причины: высота по самой длинной, ничего не прыгает ---------- */
+  .reason-box { margin: 24px 0 22px; padding: 8px 0 8px 20px; border-left: 3px solid var(--sage); }
+  .reason-count { font-size: .95rem; color: #6b6b6b; margin-bottom: 8px; min-height: 1.7em; }
+  .reason-stack { display: grid; }
+  .reason { grid-area: 1 / 1; visibility: hidden; font-family: "Caveat", "Segoe Script", cursive; font-size: 2.1rem; line-height: 1.25; font-weight: 500; margin: 0; }
+  .reason.on { visibility: visible; animation: pagein .45s ease both; }
+
+  /* ---------- Конверт ---------- */
+  .envelope {
+    position: relative; display: block; width: 100%; max-width: 380px; height: 240px;
+    margin: 12px auto 0; padding: 0; cursor: pointer; font: inherit; color: var(--text);
+    background: #f3e3dc; border: 1px solid #e0c7bd; border-radius: 6px; overflow: visible;
+    perspective: 700px;
+  }
+  .envelope .flap {
+    position: absolute; left: -1px; top: -1px; width: calc(100% + 2px); height: 130px;
+    background: #ecd6cc; border: 1px solid #e0c7bd;
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    transform-origin: top center; transition: transform .6s ease;
+  }
+  .envelope.open .flap { transform: rotateX(180deg); }
+  .env-text { position: absolute; left: 0; right: 0; bottom: 34px; font-family: "Caveat", "Segoe Script", cursive; font-size: 1.7rem; }
+  .envelope[hidden] { display: none; }
+  .envelope:focus-visible { outline: 3px solid var(--sage); outline-offset: 4px; }
+  .envelope.open .env-text { opacity: 0; transition: opacity .3s; }
+  #letter:not([hidden]) { animation: pagein .7s ease both; }
+
+  /* ---------- Цветы: место под подсказку и под текст зарезервировано ---------- */
+  .flower-hint { text-align: center; animation: hintpulse 1.8s ease-in-out infinite; }
+  .flower-hint[hidden] { display: block; visibility: hidden; animation: none; }
+  @keyframes hintpulse { 50% { opacity: .4; } }
+  .flower-stage { position: relative; width: clamp(190px, 60vw, 340px); width: clamp(190px, calc((100dvh - 470px) * .72), 340px); margin: 0 auto; }
+  .flower-stage svg { display: block; width: 100%; height: auto; }
+  .can-btn { position: absolute; left: 44%; top: 0; width: 46%; height: 20%; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 12px; }
+  .can-btn:focus-visible { outline: 3px solid var(--sage); outline-offset: 2px; }
+  .can-btn:disabled { pointer-events: none; }
+  .can-g { transform-origin: 250px 54px; transition: transform .5s ease; }
+  .poured .can-g { transform: rotate(-16deg); }
+  .drop { fill: #9cc3dc; opacity: 0; }
+  .raining .drop { animation: fall .8s ease-in 2 both; }
+  @keyframes fall {
+    0% { transform: translateY(0); opacity: 0; }
+    12% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(330px); opacity: 0; }
+  }
+  .stem { fill: none; stroke: #8fa088; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1s ease; }
+  .bloomed .stem { stroke-dashoffset: 0; }
+  .leaf { fill: #a8b5a0; stroke: #7f8f78; stroke-width: 1; transform: scale(0); transition: transform .7s ease; }
+  .bloomed .leaf { transform: scale(1); }
+  .head { transform: scale(0) rotate(-40deg); transition: transform .8s cubic-bezier(.34, 1.56, .64, 1); }
+  .bloomed .head { transform: scale(1) rotate(0); }
+  .flower-msg { font-family: "Caveat", "Segoe Script", cursive; font-size: 1.9rem; line-height: 1.25; text-align: center; margin: 18px 0 0; min-height: 2.5em; }
+  .flower-msg[hidden] { display: block; visibility: hidden; }
+  .flower-msg:not([hidden]) { animation: pagein .8s ease both; }
+  #petals { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+
+  @media (max-width: 520px) {
+    :root { --pad: 22px; }
+    .desk { padding: 12px 12px 16px; }
+    .scroller { padding-top: 30px; }
+    .nav { padding: 12px 0 16px; }
+    .reason { font-size: 1.8rem; }
+    .flower-msg { min-height: 5em; }
+    .pvol { width: 58px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .page-in, .reason.on, #letter:not([hidden]), .flower-msg:not([hidden]) { animation: none; }
+    .bg, .bg::before, .bg::after, .pbtn.hint, .player.playing .eq i { animation: none; }
+    .envelope .flap { transition: none; }
+    .flower-hint, .raining .drop { animation: none; }
+    .stem, .leaf, .head, .can-g { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<canvas id="petals" aria-hidden="true"></canvas>
+<div class="app">
+
+  <div class="player-bar">
+    <div class="player" id="player" role="group" aria-label="Музыка">
+      <button class="pbtn hint" id="pbtn" aria-label="Включить музыку" aria-pressed="false">
+        <svg class="i-play" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z" fill="currentColor"/></svg>
+      </button>
+      <div class="ptext"><span>Музыка для тебя</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <input class="pvol" id="pvol" type="range" min="0" max="1" step="0.01" value="0.6" aria-label="Громкость">
+    </div>
+  </div>
+
+  <main class="desk">
+  <div class="stack">
+  <div class="sheet" id="sheet">
+    <span class="tape" aria-hidden="true"></span>
+    <div class="scroll-wrap">
+    <div class="scroller" id="scroller">
+
+  <section id="p0">
+    <h1>Мамочка, с Днём матери!</h1>
+    <p>Сегодня хочу сказать тебе то, что обычно не успеваю. Спасибо, что ты рядом, даже когда я этого не замечаю.</p>
+    <p>Мы часто говорим о делах, о погоде, о том, что купить и кому позвонить. А про главное как-то всё время откладываем. Поэтому я сделал для тебя этот небольшой сайт, чтобы сказать всё спокойно и по порядку.</p>
+    <p class="small">Нажми «Открыть» и листай дальше, там несколько страниц.</p>
+    <button class="btn start" data-go="1">Открыть</button>
+  </section>
+
+  <section id="p1" hidden>
+    <h2>Что я тебе желаю</h2>
+    <div class="wish">
+      <span class="lead">Здоровья</span>
+      <p>Чтобы ты хорошо спала, не уставала и никогда не думала о себе в последнюю очередь. Здоровье у тебя одно, и я хочу, чтобы ты его берегла так же, как всегда бережёшь всех нас.</p>
+    </div>
+    <div class="wish">
+      <span class="lead">Тепла и спокойных дней</span>
+      <p>Чтобы дома было уютно, чтобы можно было сесть с чаем и никуда не спешить. Пусть будет побольше обычных тихих вечеров, в которых нет никакой суеты.</p>
+    </div>
+    <div class="wish">
+      <span class="lead">Чтобы сбывалось задуманное</span>
+      <p>Я знаю, что у тебя есть мечты, о которых ты давно не говорила вслух. Пусть они начнут сбываться, большие и маленькие, и пусть для этого найдётся и время, и повод.</p>
+    </div>
+    <div class="wish">
+      <span class="lead">Времени для себя</span>
+      <p>Пусть у тебя будет время на то, что нравится именно тебе: на прогулку, на любимую передачу, на отдых без чувства вины. Ты это заслужила больше, чем кто-либо.</p>
+    </div>
+    <div class="wish">
+      <span class="lead">Хороших людей рядом</span>
+      <p>Чтобы вокруг были те, кто тебя ценит, помнит и вовремя звонит. И чтобы ты всегда чувствовала, что тебя любят просто так, а не за что-то.</p>
+    </div>
+  </section>
+
+  <section id="p2" hidden>
+    <h2>Почему ты лучшая</h2>
+    <p class="small">Причин слишком много, поэтому я выбрал несколько. Нажимай и читай по одной.</p>
+    <div class="reason-box">
+      <div class="reason-count" id="rcount"></div>
+      <div class="reason-stack" id="rstack" aria-live="polite"></div>
+    </div>
+    <button class="btn" id="rbtn">Показать причину</button>
+  </section>
+
+  <section id="p3" hidden>
+    <h2>Спасибо тебе</h2>
+    <p>За то, что в детстве ты всегда знала, что делать, когда что-то шло не так. Даже если тебе самой было непросто, ты находила способ, чтобы мне казалось, что всё под контролем.</p>
+    <p>За то, что ты до сих пор спрашиваешь, как у меня дела и всё ли хорошо. Иногда это кажется мелочью, но на самом деле это очень много значит, когда знаешь, что где-то есть человек, который об этом думает.</p>
+    <p>За терпение, когда я был не прав или упрямился. За советы, которые я не сразу слушал, но потом всё равно к ним возвращался. И за то, что ты никогда не давила, а просто была рядом.</p>
+    <p>За дом, куда хочется возвращаться. Он ощущается домом именно из-за тебя.</p>
+    <p>Я не всегда это показываю, но я правда это замечаю и ценю.</p>
+  </section>
+
+  <section id="p4" hidden>
+    <h2>Тебе цветы</h2>
+    <p class="small flower-hint" id="fhint">Нажми на лейку, чтобы полить.</p>
+    <div class="flower-stage idle" id="fwrap">
+      <svg viewBox="0 0 360 500" role="img" aria-label="Горшок с лейкой">
+        <defs>
+          <g id="fl">
+            <g fill="currentColor" stroke="#3d3d3d" stroke-opacity=".3" stroke-width="1">
+              <ellipse cx="0" cy="-16" rx="9" ry="15"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(45)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(90)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(135)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(180)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(225)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(270)"/>
+              <ellipse cx="0" cy="-16" rx="9" ry="15" transform="rotate(315)"/>
+            </g>
+            <circle r="8" fill="#f3dfa2" stroke="#3d3d3d" stroke-opacity=".3" stroke-width="1"/>
+          </g>
+        </defs>
+
+        <g transform="translate(0 70)">
+          <g transform="translate(162 305) rotate(-50)"><g class="leaf" style="transition-delay:0.30s"><ellipse cx="0" cy="-14" rx="7" ry="15"/></g></g>
+          <g transform="translate(198 300) rotate(50)"><g class="leaf" style="transition-delay:0.50s"><ellipse cx="0" cy="-14" rx="7" ry="15"/></g></g>
+          <g transform="translate(152 268) rotate(-65)"><g class="leaf" style="transition-delay:0.70s"><ellipse cx="0" cy="-14" rx="7" ry="15"/></g></g>
+          <g transform="translate(212 266) rotate(65)"><g class="leaf" style="transition-delay:0.90s"><ellipse cx="0" cy="-14" rx="7" ry="15"/></g></g>
+          <path class="stem" pathLength="1" d="M180 330 C180 250 178 170 180 105" style="transition-delay:0.00s"/>
+          <path class="stem" pathLength="1" d="M172 330 C165 260 130 220 118 160" style="transition-delay:0.15s"/>
+          <path class="stem" pathLength="1" d="M188 330 C195 260 230 220 242 160" style="transition-delay:0.30s"/>
+          <path class="stem" pathLength="1" d="M165 330 C130 305 90 280 72 235" style="transition-delay:0.45s"/>
+          <path class="stem" pathLength="1" d="M195 330 C230 305 270 280 288 235" style="transition-delay:0.60s"/>
+          <path class="stem" pathLength="1" d="M176 330 C170 285 155 245 146 205" style="transition-delay:0.75s"/>
+          <path class="stem" pathLength="1" d="M184 330 C190 285 205 245 216 200" style="transition-delay:0.90s"/>
+          <g transform="translate(180 105) scale(1.1)"><g class="head" style="transition-delay:0.60s"><use href="#fl" style="color:#e8b4b8"/></g></g>
+          <g transform="translate(118 160) scale(0.95)"><g class="head" style="transition-delay:0.75s"><use href="#fl" style="color:#d98c93"/></g></g>
+          <g transform="translate(242 160) scale(0.95)"><g class="head" style="transition-delay:0.90s"><use href="#fl" style="color:#f4c9a8"/></g></g>
+          <g transform="translate(72 235) scale(0.85)"><g class="head" style="transition-delay:1.05s"><use href="#fl" style="color:#f0c6c9"/></g></g>
+          <g transform="translate(288 235) scale(0.85)"><g class="head" style="transition-delay:1.20s"><use href="#fl" style="color:#f4c9a8"/></g></g>
+          <g transform="translate(146 205) scale(0.75)"><g class="head" style="transition-delay:1.35s"><use href="#fl" style="color:#d98c93"/></g></g>
+          <g transform="translate(216 200) scale(0.75)"><g class="head" style="transition-delay:1.50s"><use href="#fl" style="color:#f0c6c9"/></g></g>
+          <ellipse cx="180" cy="420" rx="62" ry="6" fill="#3d3d3d" opacity=".07"/>
+          <path d="M128 348 L232 348 L220 412 Q219 416 214 416 L146 416 Q141 416 140 412 Z" fill="#d8a48f" stroke="#8a5f4d" stroke-width="1.5" stroke-linejoin="round"/>
+          <rect x="120" y="324" width="120" height="26" rx="6" fill="#c98f78" stroke="#8a5f4d" stroke-width="1.5"/>
+        </g>
+
+        <g class="can-g">
+          <path d="M228 32 C232 12 264 12 268 32" fill="none" stroke="#7f8f78" stroke-width="4" stroke-linecap="round"/>
+          <path d="M286 40 C314 40 314 72 286 72" fill="none" stroke="#7f8f78" stroke-width="5" stroke-linecap="round"/>
+          <path d="M216 68 L178 40 L172 46 L216 80 Z" fill="#a8b5a0" stroke="#7f8f78" stroke-width="1.5" stroke-linejoin="round"/>
+          <ellipse cx="175" cy="43" rx="6" ry="8" transform="rotate(-38 175 43)" fill="#8fa088" stroke="#7f8f78" stroke-width="1.5"/>
+          <rect x="214" y="30" width="74" height="52" rx="9" fill="#a8b5a0" stroke="#7f8f78" stroke-width="1.5"/>
+          <path d="M224 44 H278" stroke="#fff" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(168 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.00s"/></g>
+        <g transform="translate(172 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.14s"/></g>
+        <g transform="translate(176 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.28s"/></g>
+        <g transform="translate(170 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.42s"/></g>
+        <g transform="translate(174 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.56s"/></g>
+        <g transform="translate(178 64)"><path class="drop" d="M0 -5 C4 1 4 5 0 6 C-4 5 -4 1 0 -5Z" style="animation-delay:0.70s"/></g>
+      </svg>
+      <button class="can-btn" id="fbtn" aria-label="Полить цветы из лейки"></button>
+    </div>
+    <p class="flower-msg" id="fmsg" hidden>На обычные цветы денег не было, поэтому хотя бы такие. Зато эти не завянут.</p>
+  </section>
+
+  <section id="p5" hidden>
+    <h2>Тебе</h2>
+    <button class="envelope" id="env" aria-label="Открыть конверт">
+      <span class="flap"></span>
+      <span class="env-text">Нажми, чтобы открыть</span>
+    </button>
+    <div class="letter" id="letter" hidden>
+    <p>Мам, я не всегда говорю это вслух, поэтому пишу.</p>
+    <p>Спасибо, что ты всегда поддерживаешь и веришь в меня. Когда я сомневаюсь в себе, мне достаточно вспомнить, как ты говоришь: «Ты справишься». И почему-то после этого действительно получается.</p>
+    <p>Ты для меня пример доброты и силы. Я вижу, как ты заботишься о близких, как не жалуешься и идёшь вперёд, и очень хочу быть хоть немного похожим на тебя.</p>
+    <p>Прости, если иногда я был невнимательным или слишком занятым. Это не потому, что мне всё равно. Просто иногда не хватает слов, а делать вид, что всё само собой разумеется, неправильно.</p>
+    <p>С Днём матери. Обнимаю тебя крепко и очень люблю.</p>
+    <div class="sign">Твой ребёнок</div>
+    </div>
+  </section>
+
+    </div>
+    <div class="fade" aria-hidden="true"></div>
+    </div>
+
+    <div class="nav off" id="nav">
+      <button class="btn quiet" id="prev">Назад</button>
+      <button class="btn" id="next">Дальше</button>
+    </div>
+  </div>
+  </div>
+  </main>
+</div>
+<script>
+  var pages = [0, 1, 2, 3, 4, 5].map(function (i) { return document.getElementById("p" + i); });
+  var nav = document.getElementById("nav");
+  var next = document.getElementById("next");
+  var current = 0;
+  var scroller = document.getElementById("scroller");
+  var sheet = document.getElementById("sheet");
+
+  /* лёгкое затемнение внизу листа, пока есть что прокручивать */
+  function updateMore() {
+    sheet.classList.toggle("more", scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 6);
+  }
+  scroller.addEventListener("scroll", updateMore, { passive: true });
+  window.addEventListener("resize", updateMore);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateMore);
+
+  function show(i) {
+    current = i;
+    pages.forEach(function (p, idx) {
+      p.hidden = idx !== i;
+      p.classList.remove("page-in");
+    });
+    void pages[i].offsetWidth;
+    pages[i].classList.add("page-in");
+    nav.classList.toggle("off", i === 0);
+    next.textContent = i === pages.length - 1 ? "В начало" : "Дальше";
+    scroller.scrollTop = 0;
+    updateMore();
+    if (i !== 5) resetEnvelope();
+    if (i !== 4) resetFlowers();
+  }
+
+  document.querySelector("[data-go]").addEventListener("click", function () { show(1); });
+  document.getElementById("prev").addEventListener("click", function () { show(current - 1); });
+  next.addEventListener("click", function () { show(current === pages.length - 1 ? 0 : current + 1); });
+
+  /* Причины: по одной, в случайном порядке */
+  var reasons = [
+    "Ты умеешь выслушать, даже когда я говорю сбивчиво.",
+    "Ты помнишь важные мелочи, которые я сам забываю.",
+    "Рядом с тобой всегда становится спокойнее.",
+    "Ты находишь тёплые слова именно тогда, когда они нужнее всего.",
+    "С тобой можно просто помолчать, и это совсем не неловко.",
+    "Ты радуешься моим успехам сильнее, чем я сам.",
+    "Ты умеешь разрядить любую ситуацию шуткой.",
+    "Ты переживаешь за всех, даже когда не говоришь об этом.",
+    "Тебе хочется позвонить первой, когда случилось что-то хорошее.",
+    "Твои советы почти всегда оказываются верными.",
+    "Ты не делаешь вид, что всё идеально, и это честно.",
+    "Ты моя мама, и этого уже достаточно."
+  ];
+  var order = [], pos = 0;
+  var rbtn = document.getElementById("rbtn");
+  var rcount = document.getElementById("rcount");
+  var rstack = document.getElementById("rstack");
+  var intro = "Нажми на кнопку, и появится первая причина.";
+
+  /* все причины лежат друг на друге в одной ячейке, поэтому высота блока всегда по самой длинной */
+  var ritems = [intro].concat(reasons).map(function (t) {
+    var p = document.createElement("p");
+    p.className = "reason";
+    p.textContent = t;
+    rstack.appendChild(p);
+    return p;
+  });
+  function showReason(k) {
+    ritems.forEach(function (p, idx) { p.classList.toggle("on", idx === k); });
+  }
+  showReason(0);
+
+  function shuffle() {
+    order = reasons.map(function (_, i) { return i; });
+    for (var i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    order.splice(order.indexOf(reasons.length - 1), 1);
+    order.push(reasons.length - 1);
+    pos = 0;
+  }
+  shuffle();
+
+  rbtn.addEventListener("click", function () {
+    if (pos >= order.length) {
+      shuffle();
+      showReason(0);
+      rcount.textContent = "";
+      rbtn.textContent = "Показать причину";
+      return;
+    }
+    showReason(order[pos] + 1);
+    pos++;
+    rcount.textContent = "Причина " + pos + " из " + reasons.length;
+    rbtn.textContent = pos >= order.length ? "Начать сначала" : "Ещё одна причина";
+  });
+
+  /* Лейка и цветы */
+  var fwrap = document.getElementById("fwrap");
+  var fbtn = document.getElementById("fbtn");
+  var fhint = document.getElementById("fhint");
+  var fmsg = document.getElementById("fmsg");
+  var ftimers = [];
+  function resetFlowers() {
+    ftimers.forEach(clearTimeout);
+    ftimers = [];
+    fwrap.className = "flower-stage idle";
+    fbtn.disabled = false;
+    fhint.hidden = false;
+    fmsg.hidden = true;
+  }
+  fbtn.addEventListener("click", function () {
+    fwrap.classList.remove("idle");
+    fwrap.classList.add("poured");
+    fbtn.disabled = true;
+    fhint.hidden = true;
+    ftimers.push(setTimeout(function () { fwrap.classList.add("raining"); }, 450));
+    ftimers.push(setTimeout(function () { fwrap.classList.add("bloomed"); }, 1900));
+    ftimers.push(setTimeout(function () {
+      fmsg.hidden = false;
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+      updateMore();
+    }, 4300));
+  });
+
+  /* Конверт */
+  var env = document.getElementById("env");
+  var letter = document.getElementById("letter");
+  var envTimer;
+  function resetEnvelope() {
+    clearTimeout(envTimer);
+    env.hidden = false;
+    env.classList.remove("open");
+    letter.hidden = true;
+  }
+  env.addEventListener("click", function () {
+    env.classList.add("open");
+    envTimer = setTimeout(function () {
+      env.hidden = true;
+      letter.hidden = false;
+      scroller.scrollTop = 0;
+      updateMore();
+    }, 750);
+  });
+
+  /* Музыка. По умолчанию играет тихая мелодия, которая рождается прямо в браузере.
+     Если хочешь свой трек, положи mp3 рядом с index.html и впиши имя файла ниже. */
+  (function () {
+    var AUDIO_FILE = ""; /* например: "music.mp3" */
+    var player = document.getElementById("player");
+    var pbtn = document.getElementById("pbtn");
+    var pvol = document.getElementById("pvol");
+    var engine = null, playing = false;
+
+    function setState(on) {
+      playing = on;
+      player.classList.toggle("playing", on);
+      pbtn.setAttribute("aria-pressed", on ? "true" : "false");
+      pbtn.setAttribute("aria-label", on ? "Выключить музыку" : "Включить музыку");
+    }
+
+    function fileEngine() {
+      var a = new Audio(AUDIO_FILE);
+      a.loop = true;
+      return {
+        start: function (v) {
+          a.volume = v;
+          var r = a.play();
+          if (r && r.catch) r.catch(function () { setState(false); });
+        },
+        stop: function () { a.pause(); },
+        setVol: function (v) { a.volume = v; }
+      };
+    }
+
+    function synthEngine() {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      var ctx = new AC();
+
+      var out = ctx.createGain(); out.gain.value = 0;
+      var comp = ctx.createDynamicsCompressor();
+      out.connect(comp); comp.connect(ctx.destination);
+
+      var bus = ctx.createGain();
+      var dry = ctx.createGain(); dry.gain.value = 0.85;
+      bus.connect(dry); dry.connect(out);
+
+      /* простая «комната»: шумовой хвост */
+      var rev = ctx.createConvolver();
+      var len = Math.floor(ctx.sampleRate * 3);
+      var ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (var c = 0; c < 2; c++) {
+        var d = ir.getChannelData(c);
+        for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+      }
+      rev.buffer = ir;
+      var wet = ctx.createGain(); wet.gain.value = 0.5;
+      bus.connect(rev); rev.connect(wet); wet.connect(out);
+
+      /* мягкое эхо */
+      var dly = ctx.createDelay(1); dly.delayTime.value = 0.69;
+      var fb = ctx.createGain(); fb.gain.value = 0.3;
+      var lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
+      var dg = ctx.createGain(); dg.gain.value = 0.3;
+      bus.connect(dly); dly.connect(lp); lp.connect(fb); fb.connect(dly); lp.connect(dg); dg.connect(out);
+
+      function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+      /* колокольчик / музыкальная шкатулка */
+      function bell(m, t, dur, peak) {
+        [[1, 1, dur], [2, 0.22, dur * 0.4], [3, 0.06, dur * 0.2]].forEach(function (p) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine"; o.frequency.value = hz(m) * p[0];
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.linearRampToValueAtTime(peak * p[1], t + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + p[2]);
+          o.connect(g); g.connect(bus);
+          o.start(t); o.stop(t + p[2] + 0.05);
+        });
+      }
+      /* тёплая подкладка */
+      function pad(m, t, dur, peak) {
+        var f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900;
+        var g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(peak, t + dur * 0.4);
+        g.gain.linearRampToValueAtTime(0.0001, t + dur);
+        f.connect(g); g.connect(bus);
+        [-4, 4].forEach(function (cents) {
+          var o = ctx.createOscillator();
+          o.type = "triangle"; o.frequency.value = hz(m); o.detune.value = cents;
+          o.connect(f); o.start(t); o.stop(t + dur + 0.05);
+        });
+      }
+      function bass(m, t, dur, peak) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = hz(m);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(peak, t + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(dry); o.start(t); o.stop(t + dur + 0.05);
+      }
+
+      /* аккорды: b = бас, a = ноты арпеджио, m = ноты для мелодии */
+      var CH = {
+        C:  { b: 48, a: [48, 55, 59, 64, 67, 71], m: [76, 79, 83, 74] },
+        Am: { b: 45, a: [52, 55, 60, 64, 67, 69], m: [72, 76, 79, 81] },
+        F:  { b: 41, a: [53, 57, 60, 64, 69, 72], m: [72, 76, 77, 81] },
+        G:  { b: 43, a: [55, 59, 62, 64, 67, 71], m: [74, 79, 76, 83] },
+        Em: { b: 40, a: [52, 55, 59, 62, 64, 67], m: [71, 74, 76, 79] },
+        Dm: { b: 38, a: [50, 53, 57, 60, 62, 65], m: [69, 72, 74, 77] }
+      };
+      var A = ["C", "Am", "F", "G"], B = ["F", "Em", "Dm", "G"];
+      var SEQ = [A, A, B, A];
+      var PAT = [0, 2, 3, 4, 5, 4, 3, 2];
+      var EIGHTH = 0.46;
+      var nextT = 0, step = 0, bar = 0, sec = 0, timer = null;
+
+      function schedule() {
+        while (nextT < ctx.currentTime + 2) {
+          var ch = CH[SEQ[sec % SEQ.length][bar]];
+          var t = nextT + Math.random() * 0.012;
+          if (step === 0) {
+            bass(ch.b, t, 3.6, 0.2);
+            pad(ch.a[1], t, 4.4, 0.05);
+            pad(ch.a[3], t, 4.4, 0.04);
+          }
+          bell(ch.a[PAT[step]], t, 2.4, 0.11 + Math.random() * 0.03);
+          if ((step === 0 || step === 3 || step === 6) && Math.random() < 0.55) {
+            bell(ch.m[Math.floor(Math.random() * ch.m.length)], t, 3, 0.085);
+          }
+          nextT += EIGHTH;
+          step++;
+          if (step === 8) { step = 0; bar++; if (bar === 4) { bar = 0; sec++; } }
+        }
+      }
+
+      return {
+        start: function (v) {
+          if (ctx.state === "suspended") ctx.resume();
+          if (!timer) { nextT = ctx.currentTime + 0.1; timer = setInterval(schedule, 300); }
+          schedule();
+          out.gain.cancelScheduledValues(ctx.currentTime);
+          out.gain.setTargetAtTime(v * 1.1, ctx.currentTime, 0.2);
+        },
+        stop: function () {
+          out.gain.cancelScheduledValues(ctx.currentTime);
+          out.gain.setTargetAtTime(0, ctx.currentTime, 0.12);
+          setTimeout(function () { if (!playing) ctx.suspend(); }, 600);
+        },
+        setVol: function (v) {
+          if (playing) out.gain.setTargetAtTime(v * 1.1, ctx.currentTime, 0.05);
+        }
+      };
+    }
+
+    pbtn.addEventListener("click", function () {
+      pbtn.classList.remove("hint");
+      if (!engine) engine = AUDIO_FILE ? fileEngine() : synthEngine();
+      if (!engine) return;
+      if (navigator.audioSession) { try { navigator.audioSession.type = "playback"; } catch (e) {} }
+      setState(!playing);
+      if (playing) engine.start(+pvol.value); else engine.stop();
+    });
+    pvol.addEventListener("input", function () { if (engine) engine.setVol(+pvol.value); });
+  })();
+
+  /* Лепестки и цветочки за курсором (на телефоне при касании и движении пальца) */
+  (function () {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    var canvas = document.getElementById("petals");
+    var ctx = canvas.getContext("2d");
+    var dpr = window.devicePixelRatio || 1;
+    var parts = [];
+    var running = false;
+    var last = { x: -100, y: -100 };
+    var colors = ["#e8b4b8", "#f0c6c9", "#e0a3a8", "#f6d9da", "#a8b5a0"];
+
+    function resize() {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    function spawn(x, y, burst) {
+      var n = burst ? 7 : 1 + (Math.random() < 0.4 ? 1 : 0);
+      for (var i = 0; i < n; i++) {
+        parts.push({
+          x: x + (Math.random() - 0.5) * 10,
+          y: y + (Math.random() - 0.5) * 10,
+          vx: (Math.random() - 0.5) * (burst ? 2.4 : 0.8),
+          vy: (burst ? -0.8 : 0.3) + Math.random() * 0.7,
+          rot: Math.random() * 6.28,
+          vr: (Math.random() - 0.5) * 0.08,
+          size: 5 + Math.random() * 5,
+          life: 1,
+          decay: 0.008 + Math.random() * 0.006,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          flower: Math.random() < 0.15,
+          sway: Math.random() * 6.28
+        });
+      }
+      if (parts.length > 160) parts.splice(0, parts.length - 160);
+      if (!running) { running = true; requestAnimationFrame(tick); }
+    }
+
+    function petal(s) {
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.bezierCurveTo(s * 0.8, -s * 0.6, s * 0.6, s * 0.6, 0, s);
+      ctx.bezierCurveTo(-s * 0.6, s * 0.6, -s * 0.8, -s * 0.6, 0, -s);
+      ctx.fill();
+    }
+
+    function draw(p) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      if (p.flower) {
+        var s = p.size * 0.6;
+        for (var k = 0; k < 5; k++) {
+          ctx.save();
+          ctx.rotate(k * 1.2566);
+          ctx.translate(0, -s);
+          petal(s);
+          ctx.restore();
+        }
+        ctx.fillStyle = "#f3dfa2";
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.45, 0, 6.28);
+        ctx.fill();
+      } else {
+        petal(p.size);
+      }
+      ctx.restore();
+    }
+
+    function tick() {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      for (var i = parts.length - 1; i >= 0; i--) {
+        var p = parts[i];
+        p.sway += 0.04;
+        p.x += p.vx + Math.sin(p.sway) * 0.4;
+        p.y += p.vy;
+        p.vy += 0.008;
+        p.vx *= 0.99;
+        p.rot += p.vr;
+        p.life -= p.decay;
+        if (p.life <= 0) { parts.splice(i, 1); continue; }
+        draw(p);
+      }
+      if (parts.length) requestAnimationFrame(tick);
+      else { running = false; ctx.clearRect(0, 0, window.innerWidth, window.innerHeight); }
+    }
+
+    window.addEventListener("pointermove", function (e) {
+      var dx = e.clientX - last.x, dy = e.clientY - last.y;
+      if (dx * dx + dy * dy < 22 * 22) return;
+      last.x = e.clientX; last.y = e.clientY;
+      spawn(e.clientX, e.clientY, false);
+    });
+    window.addEventListener("pointerdown", function (e) {
+      last.x = e.clientX; last.y = e.clientY;
+      spawn(e.clientX, e.clientY, true);
+    });
+  })();
+</script>
+</body>
+</html>
